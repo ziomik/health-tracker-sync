@@ -1,4 +1,4 @@
-// Top-level build file
+﻿// Top-level build file
 buildscript {
     ext.kotlin_version = '1.9.0'
     repositories {
@@ -11,11 +11,9 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
+plugins {
+    id 'com.android.application' apply false
+    id 'org.jetbrains.kotlin.android' apply false
 }
 
 task clean(type: Delete) {
