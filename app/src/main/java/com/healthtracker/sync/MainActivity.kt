@@ -11,6 +11,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.lifecycleScope
 import com.healthtracker.sync.api.HealthTrackerApi
 import com.healthtracker.sync.api.SetupQRData
 import com.healthtracker.sync.data.PreferencesManager
@@ -29,28 +30,26 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
-    
     private lateinit var prefsManager: PreferencesManager
     private lateinit var healthManager: HealthConnectManager
-    
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         // Handle permission results
     }
-    
+
     private val qrScannerLauncher = registerForActivityResult(ScanContract()) { result ->
         result.contents?.let { qrContent ->
             handleQRScan(qrContent)
         }
     }
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         prefsManager = PreferencesManager(this)
         healthManager = HealthConnectManager(this)
-        
+
         setContent {
             HealthTrackerSyncTheme {
                 Surface(
@@ -62,28 +61,27 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     @Composable
     fun MainScreen() {
         val scope = rememberCoroutineScope()
-        
         var isConfigured by remember { mutableStateOf(false) }
         var serverUrl by remember { mutableStateOf("") }
         var lastSync by remember { mutableStateOf<String?>(null) }
         var isSyncing by remember { mutableStateOf(false) }
-        
+
         LaunchedEffect(Unit) {
             prefsManager.serverUrl.collect { serverUrl = it ?: "" }
         }
-        
+
         LaunchedEffect(Unit) {
             prefsManager.lastSync.collect { lastSync = it }
         }
-        
+
         LaunchedEffect(Unit) {
             isConfigured = prefsManager.deviceId.first() != null
         }
-        
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -95,18 +93,18 @@ class MainActivity : ComponentActivity() {
                 text = "Health Tracker Sync",
                 style = MaterialTheme.typography.headlineMedium
             )
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             if (!isConfigured) {
                 // Setup screen
                 Text(
                     text = "📱 Scansiona QR code dalla webapp",
                     style = MaterialTheme.typography.bodyLarge
                 )
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 Button(onClick = { launchQRScanner() }) {
                     Text("Scansiona QR Code")
                 }
@@ -121,14 +119,14 @@ class MainActivity : ComponentActivity() {
                             text = "✅ Configurato",
                             style = MaterialTheme.typography.titleMedium
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = "Server: $serverUrl",
                             style = MaterialTheme.typography.bodyMedium
                         )
-                        
+
                         if (lastSync != null) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
@@ -138,9 +136,9 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 Button(
                     onClick = {
                         scope.launch {
@@ -153,9 +151,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Text(if (isSyncing) "Sincronizzazione..." else "Sincronizza Ora")
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 OutlinedButton(onClick = {
                     scope.launch {
                         prefsManager.clearSetup()
@@ -167,7 +165,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun launchQRScanner() {
         val options = ScanOptions().apply {
             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
@@ -177,11 +175,10 @@ class MainActivity : ComponentActivity() {
         }
         qrScannerLauncher.launch(options)
     }
-    
+
     private fun handleQRScan(qrContent: String) {
         try {
             val setupData = Gson().fromJson(qrContent, SetupQRData::class.java)
-            
             lifecycleScope.launch {
                 prefsManager.saveSetupData(
                     serverUrl = setupData.serverUrl,
@@ -189,13 +186,13 @@ class MainActivity : ComponentActivity() {
                     apiToken = setupData.apiToken,
                     userId = setupData.userId.toString()
                 )
-                
+
                 // Inizializza API
                 HealthTrackerApi.initialize(setupData.serverUrl)
-                
+
                 // Request Health Connect permissions
                 requestHealthConnectPermissions()
-                
+
                 // Trigger immediate sync
                 manualSync()
             }
@@ -204,16 +201,16 @@ class MainActivity : ComponentActivity() {
             // Show error
         }
     }
-    
+
     private fun requestHealthConnectPermissions() {
         permissionLauncher.launch(healthManager.requiredPermissions.toTypedArray())
     }
-    
+
     private fun manualSync() {
         val syncWork = OneTimeWorkRequestBuilder<HealthSyncWorker>().build()
         WorkManager.getInstance(this).enqueue(syncWork)
     }
-    
+
     private fun formatTimestamp(iso: String): String {
         return try {
             val instant = Instant.parse(iso)
