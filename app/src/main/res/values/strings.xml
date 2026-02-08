@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Health Tracker Sync</string>
+    <string name="sync_notification_title">Health Sync</string>
+    <string name="sync_notification_channel">Sincronizzazione Health Connect</string>
+</resources>
