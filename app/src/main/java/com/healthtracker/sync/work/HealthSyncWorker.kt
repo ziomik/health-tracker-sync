@@ -28,12 +28,15 @@ class HealthSyncWorker(
     
     override suspend fun doWork(): Result {
         return try {
+            showSyncNotification("🔄 Worker avviato...")
+            
             // Verifica configurazione
             val deviceId = prefsManager.deviceId.first()
             val apiToken = prefsManager.apiToken.first()
             val serverUrl = prefsManager.serverUrl.first()
             
             if (deviceId == null || apiToken == null || serverUrl == null) {
+                showSyncNotification("❌ App non configurata", isOngoing = false)
                 return Result.failure()  // Non configurato
             }
             
@@ -41,12 +44,14 @@ class HealthSyncWorker(
             HealthTrackerApi.initialize(serverUrl)
             
             // Mostra notifica sync in corso
-            showSyncNotification("Sincronizzazione in corso...")
+            showSyncNotification("📊 Lettura dati Health Connect...")
             
             // Leggi dati da Health Connect
             val vitals = healthManager.readVitalsData()
             val sleep = healthManager.readSleepData()
             val activity = healthManager.readActivityData()
+            
+            showSyncNotification("📤 Trovati: ${vitals.size} vitals, ${sleep.size} sleep, ${activity.size} activity")
             
             // Sync con server
             val response = HealthTrackerApi.syncData(
